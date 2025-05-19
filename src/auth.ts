@@ -1,0 +1,65 @@
+import { writeFile } from "fs";
+import fetch from "node-fetch";
+import { URLSearchParams } from "url";
+
+export class PeerTubeAuthenticator {
+	readonly oauthClientUrl: string;
+	readonly loginUrl: string;
+	private refreshTokenFile?: string;
+
+	private type: "password" | "refresh_token";
+	private refreshToken?: string;
+	private credentials?: { username: string, password: string };
+
+	/**
+	 * Creates a PeerTubeAuthenticator object for obtaining access token
+	 * @param instance PeerTube instance URL
+	 * @param protocol HTTP or HTTPS
+	 * @param tokenOrCredentials Refresh token or username and password
+	 * @param refreshTokenFile A file to write the new refresh token to
+	 */
+	constructor(instance: string, protocol: "http" | "https", tokenOrCredentials: string | { username: string, password: string }, refreshTokenFile?: string) {
+		this.oauthClientUrl = `${protocol}://${instance}/api/v1/oauth-clients/local`;
+		this.loginUrl = `${protocol}://${instance}/api/v1/users/token`;
+		this.refreshTokenFile = refreshTokenFile;
+
+		if (typeof tokenOrCredentials == "string") {
+			this.type = "refresh_token";
+			this.refreshToken = tokenOrCredentials;
+		} else {
+			this.type = "password";
+			this.credentials = tokenOrCredentials;
+		}
+	}
+
+	async getAccessToken() {
+		let res = await fetch(this.oauthClientUrl);
+		if (!res.ok) throw new Error("Failed to get OAuth client details");
+		const { client_id: clientId, client_secret: clientSecret } = await res.json();
+
+		const body: Record<string, string> = {
+			client_id: clientId,
+			client_secret: clientSecret,
+			grant_type: this.type
+		};
+		if (this.type == "password") {
+			body.username = this.credentials!.username;
+			body.password = this.credentials!.password;
+		} else {
+			body.refresh_token = this.refreshToken!;
+		}
+		res = await fetch(this.loginUrl, { method: "POST", body: new URLSearchParams(body) });
+		if (!res.ok) throw new Error("Failed to login");
+		const { access_token: accessToken, refresh_token: refreshToken, token_type: tokenType } = await res.json();
+		this.refreshToken = refreshToken;
+		if (this.refreshTokenFile) writeFile(this.refreshTokenFile, this.refreshToken || "", () => {});
+		this.type = "refresh_token";
+		return { accessToken, tokenType };
+	}
+
+	async getRefreshToken() {
+		if (this.refreshToken) return this.refreshToken;
+		await this.getAccessToken();
+		return this.refreshToken!;
+	}
+}

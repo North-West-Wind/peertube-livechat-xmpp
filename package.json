@@ -24,6 +24,7 @@
     "@types/node-fetch": "^2.6.12",
     "@types/xmpp__client": "^0.13.3",
     "@types/xmpp__xml": "^0.13.4",
+    "dotenv": "^16.5.0",
     "eslint": "^9.27.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.1.0",

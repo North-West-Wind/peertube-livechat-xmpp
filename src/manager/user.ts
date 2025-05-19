@@ -22,7 +22,7 @@ export class UserManager extends Manager<string, User> {
 		if ((stanza.getAttr("from") as string).split("/").pop()! == this.self?.nickname) return;
 		const affRole = stanza.getChild("x")?.getChild("item");
 		const user: User = {
-			id: stanza.getChild("occupantId")?.getAttr("id"),
+			id: stanza.getChild("occupant-id")?.getAttr("id"),
 			nickname: (stanza.getAttr("from") as string).split("/").pop()!,
 			affiliation: affRole?.getAttr("affiliation"),
 			role: affRole?.getAttr("role"),

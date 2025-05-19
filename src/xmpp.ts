@@ -7,6 +7,7 @@ import fetch from "node-fetch";
 
 import { Message, MessageManager } from "./manager/message";
 import { User, UserManager } from "./manager/user";
+import { PeerTubeAuthenticator } from "./auth";
 
 export interface PeerTubeXMPPClient {
 	once(event: `result:${string}`, listener: (stanza: Element) => void): this;
@@ -17,9 +18,13 @@ export interface PeerTubeXMPPClient {
 
 export type PeerTubeXMPPClientOptions = {
 	/**
-	 * PeerTube account access token
+	 * PeerTube account login details. Has Priority over refresh token
 	 */
-	accessToken?: string;
+	credentials?: { username: string, password: string };
+	/**
+	 * PeerTube account refresh token
+	 */
+	refreshToken?: string;
 	/**
 	 * Explicit nickname
 	 */
@@ -28,6 +33,10 @@ export type PeerTubeXMPPClientOptions = {
 	 * Use the insecure protocol (http://)
 	 */
 	httpOnly?: boolean;
+	/**
+	 * The file path to write the new refresh token to
+	 */
+	refreshTokenFile?: string;
 }
 
 export class PeerTubeXMPPClient extends EventEmitter {
@@ -55,7 +64,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		this.instance = instance;
 		this.roomId = roomId;
 		// Store state of anonymous
-		this.isAnonymous = !options?.accessToken;
+		this.isAnonymous = !options?.refreshToken && !options?.credentials;
 		// Some function calls require async, so init is deferred
 		this.init(options);
 	}
@@ -77,11 +86,21 @@ export class PeerTubeXMPPClient extends EventEmitter {
 
 		let nickname: string | undefined;
 		// Login using PeerTube livechat auth
-		if (options?.accessToken) {
-			res = await fetch(authenticationUrl, { headers: { authorization: `Bearer ${options.accessToken}` } });
+		let accessToken: string | undefined;
+		let tokenType: string | undefined;
+		if (options?.credentials || options?.refreshToken) {
+			const auth = new PeerTubeAuthenticator(this.instance, options.httpOnly ? "http" : "https", (options.credentials ?? options.refreshToken)!, options.refreshTokenFile);
+			const result = await auth.getAccessToken();
+			accessToken = result.accessToken;
+			tokenType = result.tokenType;
+		}
+
+		if (accessToken && tokenType) {
+			res = await fetch(authenticationUrl, { headers: { authorization: `${tokenType} ${accessToken}` } });
 			if (!res.ok) throw new Error("Failed to authorize using the access token. " + res.status);
 			const auth = await res.json();
-			xmppOptions.username = auth.jid;
+			// Trim domain from JID
+			xmppOptions.username = (auth.jid as string).replace(`@${this.instance}`, "");
 			xmppOptions.password = auth.password;
 			nickname = auth.nickname;
 		}
