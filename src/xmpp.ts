@@ -193,6 +193,8 @@ export class PeerTubeXMPPClient extends EventEmitter {
 			online: true
 		};
 		this.users.self = user;
+		// Ping the server every 40 seconds
+		setInterval(() => this.ping(), 40000);
 	}
 
 	/**
@@ -209,6 +211,24 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		});
 		await this.xmpp.send(element.attr("id", id));
 		return await waitForResult;
+	}
+
+	/**
+	 * Sends a ping iq to the server to keep alive
+	 */
+	private async ping() {
+		// Ping server
+		await this.send(xml(
+			"iq",
+			{ from: this.jid, to: this.instance, type: "get" },
+			xml("ping", { xmlns: "urn:xmpp:ping" })
+		));
+		// Ping account
+		await this.send(xml(
+			"iq",
+			{ to: this.data.room + "/" + this.users.self?.nickname, type: "get" },
+			xml("ping", { xmlns: "urn:xmpp:ping" })
+		));
 	}
 
 	/**
