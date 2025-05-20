@@ -160,7 +160,8 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		));
 		const affRole = res.getChild("x")?.getChild("item");
 		const user: User = {
-			id: res.getChild("occupant-id")?.getAttr("id"),
+			jid: this.jid,
+			occupantId: res.getChild("occupant-id")?.getAttr("id"),
 			nickname: (res.getAttr("from") as string).split("/").pop()!,
 			affiliation: affRole?.getAttr("affiliation"),
 			role: affRole?.getAttr("role"),

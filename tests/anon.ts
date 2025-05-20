@@ -11,11 +11,13 @@ client.on("ready", async () => {
 
 client.on("message", async message => {
 	// ignore self
-	if (message.authorId == client.users.self?.id) return;
+	if (message.authorId == client.users.self?.occupantId) return;
 	// respond to command
 	if (message.body == "!ping") {
 		const message = await client.message("pong!");
 		console.log(message);
+	} else {
+		console.log(client.users.get(message.authorId)?.jid);
 	}
 });
 

@@ -1,9 +1,14 @@
+import jid, { JID } from "@xmpp/jid";
 import { Element } from "@xmpp/xml";
 
 import { Manager } from "../manager";
 
 export type User = {
-	id: string;
+	/**
+	 * Jabber ID is only available when the account is an admin
+	 */
+	jid?: JID;
+	occupantId: string;
 	nickname: string;
 	affiliation: string;
 	role: string;
@@ -21,14 +26,16 @@ export class UserManager extends Manager<string, User> {
 		// Parse presence stanza of others
 		if ((stanza.getAttr("from") as string).split("/").pop()! == this.self?.nickname) return;
 		const affRole = stanza.getChild("x")?.getChild("item");
+		const jidAttr = affRole?.getAttr("jid");
 		const user: User = {
-			id: stanza.getChild("occupant-id")?.getAttr("id"),
+			jid: jidAttr ? jid.parse(affRole?.getAttr("jid")) : undefined,
+			occupantId: stanza.getChild("occupant-id")?.getAttr("id"),
 			nickname: (stanza.getAttr("from") as string).split("/").pop()!,
 			affiliation: affRole?.getAttr("affiliation"),
 			role: affRole?.getAttr("role"),
 			online: stanza.getAttr("type") == "unavailable"
 		};
-		this.emit("presence", this.get(user.id), user);
-		this.set(user.id, user);
+		this.emit("presence", this.get(user.occupantId), user);
+		this.set(user.occupantId, user);
 	}
 }
