@@ -12,11 +12,17 @@ client.on("ready", async () => {
 client.on("message", async message => {
 	// ignore self
 	if (message.authorId == client.users.self?.occupantId) return;
+
+	const author = message.author();
 	// respond to command
 	if (message.body == "!ping") {
 		const message = await client.message("pong!");
-		console.log(message);
+		console.log(message.id);
+	} else if (message.mentions.some(mention => mention.nickname == client.users.self?.nickname)) {
+		// mentions
+		await client.message(`@${encodeURIComponent(author?.nickname || "")} Hi`);
 	} else {
+		console.log(message.mentions);
 		console.log(client.users.get(message.authorId)?.jid);
 	}
 });

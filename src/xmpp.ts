@@ -6,7 +6,7 @@ import { EventEmitter } from "events";
 import fetch from "node-fetch";
 
 import { PeerTubeAuthenticator } from "./auth";
-import { Message, MessageManager } from "./manager/message";
+import { Message, MessageManager, MessageMention } from "./manager/message";
 import { User, UserManager } from "./manager/user";
 
 export interface PeerTubeXMPPClient {
@@ -153,11 +153,11 @@ export class PeerTubeXMPPClient extends EventEmitter {
 			// Handle events
 			switch (stanza.getName()) {
 				case "presence": {
-					this.users.handle(stanza);
+					this.users.handle(stanza, this);
 					break;
 				}
 				case "message": {
-					this.messages.handle(stanza);
+					this.messages.handle(stanza, this);
 					break;
 				}
 			}
@@ -184,6 +184,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		));
 		const affRole = res.getChild("x")?.getChild("item");
 		const user: User = {
+			client: this,
 			jid: this.jid,
 			occupantId: res.getChild("occupant-id")?.getAttr("id"),
 			nickname: (res.getAttr("from") as string).split("/").pop()!,
@@ -210,14 +211,51 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		return await waitForResult;
 	}
 
+	/**
+	 * Sends a message to the group chat
+	 * To mention a user, put @{uri-encoded-nickname} in body
+	 * @param body The body to send to the group chat
+	 * @returns The message sent
+	 */
 	async message(body: string) {
+		// Extract mentions from body
+		const mentions: MessageMention[] = [];
+		const mentionables = new Set<string>();
+		for (const user of this.users.values())
+			mentionables.add(encodeURIComponent(user.nickname));
+
+		let index = body.indexOf("@");
+		while (index >= 0) {
+			const word = body.slice(index).split(/\s+/)[0];
+			const name = word.slice(1);
+			const decoded = decodeURIComponent(name);
+			if (mentionables.has(name)) {
+				mentions.push({
+					uri: `xmpp:${this.data.room}/${name}`,
+					begin: index,
+					end: index + decoded.length,
+					nickname: decoded,
+				});
+				body = body.replace(word, decoded);
+			}
+			index = body.indexOf("@", index + 1);
+		}
+		// Send message, including mentions
+		const nodes = [xml("body", {}, body)];
+		mentions.forEach(mention => nodes.push(xml("reference", {
+			uri: mention.uri,
+			begin: mention.begin.toString(),
+			end: mention.end.toString(),
+			type: "mention",
+			xmlns: "urn:xmpp:reference:0"
+		})));
 		const result = await this.send(xml(
 			"message",
 			{ from: this.jid, to: this.data.room, type: "groupchat" },
-			xml("body", {}, body)
+			...nodes
 		));
 		const error = result.getChild("error");
 		if (error) throw new Error(error.getChildText("text") || "Unknown error");
-		return this.messages.parse(result).message;
+		return this.messages.parse(result, this).message;
 	}
 }

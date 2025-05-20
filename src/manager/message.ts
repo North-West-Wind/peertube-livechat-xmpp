@@ -1,20 +1,43 @@
 import { Element } from "@xmpp/xml";
 
 import { Manager } from "../manager";
+import { PeerTubeXMPPClient } from "../xmpp";
 
 export type MessageMention = {
 	uri: string;
 	begin: number;
 	end: number;
+	nickname: string;
 }
 
-export type Message = {
+export class Message {
+	client: PeerTubeXMPPClient;
 	id: string;
 	authorId: string;
 	originId: string;
 	time: number;
 	body: string;
 	mentions: MessageMention[];
+
+	constructor(client: PeerTubeXMPPClient, id: string, authorId: string, originId: string, time: number, body: string, mentions: MessageMention[]) {
+		this.client = client;
+		this.id = id;
+		this.authorId = authorId;
+		this.originId = originId;
+		this.time = time;
+		this.body = body;
+		this.mentions = mentions;
+	}
+
+	async reply(body: string) {
+		const quote = this.body.split("\n").map(line => `> ${line}`).join("\n");
+		const author = this.author();
+		return await this.client.message(quote + "\n" + (author ? `@${author.nickname} `: "") + body);
+	}
+
+	author() {
+		return this.client.users.get(this.authorId);
+	}
 }
 
 enum ParsedType {
@@ -31,15 +54,17 @@ export interface MessageManager {
 export class MessageManager extends Manager<string, Message> {
 	server = "";
 
-	parse(stanza: Element): { type: ParsedType, message: Partial<Message> } {
+	parse(stanza: Element, client: PeerTubeXMPPClient): { type: ParsedType, message: Partial<Message> } {
 		// Construct a Message object
-		const message: Partial<Message> = {
-			id: stanza.getChild("stanza-id")?.getAttr("id"),
-			authorId: stanza.getChild("occupant-id")?.getAttr("id"),
-			originId: stanza.getChild("origin-id")?.getAttr("id"),
-			body: stanza.getChildText("body") || undefined,
-			mentions: []
-		};
+		const message = new Message(
+			client,
+			stanza.getChild("stanza-id")?.getAttr("id"),
+			stanza.getChild("occupant-id")?.getAttr("id"),
+			stanza.getChild("origin-id")?.getAttr("id"),
+			0,
+			stanza.getChildText("body") || "",
+			[]
+		);
 		const delay = stanza.getChild("delay");
 		if (delay) // Old message
 			message.time = new Date(delay.getAttr("stamp")).getTime();
@@ -51,7 +76,8 @@ export class MessageManager extends Manager<string, Message> {
 			const mention: MessageMention = {
 				uri: reference.getAttr("uri"),
 				begin: parseInt(reference.getAttr("begin")),
-				end: parseInt(reference.getAttr("end"))
+				end: parseInt(reference.getAttr("end")),
+				nickname: decodeURIComponent((reference.getAttr("uri") as string)?.split("/").pop() || "")
 			};
 			message.mentions?.push(mention);
 		}
@@ -61,8 +87,8 @@ export class MessageManager extends Manager<string, Message> {
 		return { type: delay ? ParsedType.OLD : ParsedType.NEW, message };
 	}
 
-	handle(stanza: Element) {
-		const { type, message } = this.parse(stanza);
+	handle(stanza: Element, client: PeerTubeXMPPClient) {
+		const { type, message } = this.parse(stanza, client);
 		switch (type) {
 			case ParsedType.SERVER:
 				this.server = message.body!;

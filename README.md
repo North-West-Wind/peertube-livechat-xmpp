@@ -58,12 +58,12 @@ client.on("ready", async () => {
 // When someone (including you) sends a message
 client.on("message", async message => {
 	// Ignore self
-	if (message.authorId == client.users.self?.id) return;
+	if (message.authorId == client.users.self?.occupantId) return;
 	// Respond to command
 	if (message.body == "!ping")
 		await client.message("pong!");
 	else // Print who sent what
-		console.log(`${client.users.get(message.authorId)?.nickname}: ${message.body}`);
+		console.log(`${message.author()?.nickname}: ${message.body}`);
 });
 
 // You will also be notified when someone's presence changes
