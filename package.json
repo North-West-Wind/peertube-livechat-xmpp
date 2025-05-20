@@ -2,7 +2,9 @@
   "name": "peertube-livechat-xmpp",
   "version": "0.0.1",
   "description": "A library for interacting with PeerTube live chat plugin using XMPP.",
-  "main": "dist/index.js",
+  "main": "lib/index.js",
+	"types": "lib/index.d.ts",
+	"files": ["lib/**/*", "lib/*"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "tsx tests/anon.ts",
@@ -11,6 +13,8 @@
   "keywords": [],
   "author": "NorthWestWind",
   "license": "GPL-3.0-only",
+	"homepage": "https://github.com/North-West-Wind/peertube-livechat-xmpp",
+	"repository": "github:North-West-Wind/peertube-livechat-xmpp",
   "dependencies": {
     "@xmpp/client": "^0.13.4",
     "@xmpp/xml": "^0.13.3",
