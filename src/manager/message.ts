@@ -32,7 +32,7 @@ export class Message {
 	async reply(body: string) {
 		const quote = this.body.split("\n").map(line => `> ${line}`).join("\n");
 		const author = this.author();
-		return await this.client.message(quote + "\n" + (author ? `@${author.nickname} `: "") + body);
+		return await this.client.message(quote + "\n" + (author ? `@${encodeURIComponent(author.nickname)} `: "") + body);
 	}
 
 	author() {
