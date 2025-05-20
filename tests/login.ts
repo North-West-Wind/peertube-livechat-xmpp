@@ -1,4 +1,5 @@
 import "dotenv/config";
+
 import { PeerTubeAuthenticator } from "../src";
 
 const INSTANCE = "peertube.wtf";

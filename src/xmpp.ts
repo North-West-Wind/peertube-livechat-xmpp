@@ -5,9 +5,9 @@ import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import fetch from "node-fetch";
 
+import { PeerTubeAuthenticator } from "./auth";
 import { Message, MessageManager } from "./manager/message";
 import { User, UserManager } from "./manager/user";
-import { PeerTubeAuthenticator } from "./auth";
 
 export interface PeerTubeXMPPClient {
 	once(event: `result:${string}`, listener: (stanza: Element) => void): this;
@@ -18,13 +18,13 @@ export interface PeerTubeXMPPClient {
 
 export type PeerTubeXMPPClientOptions = {
 	/**
-	 * PeerTube account login details. Has Priority over refresh token
-	 */
-	credentials?: { username: string, password: string };
-	/**
-	 * PeerTube account refresh token
+	 * PeerTube account refresh token. Has higher priority over credentials
 	 */
 	refreshToken?: string;
+	/**
+	 * PeerTube account login details
+	 */
+	credentials?: { username: string, password: string };
 	/**
 	 * Explicit nickname
 	 */
@@ -88,8 +88,8 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		// Login using PeerTube livechat auth
 		let accessToken: string | undefined;
 		let tokenType: string | undefined;
-		if (options?.credentials || options?.refreshToken) {
-			const auth = new PeerTubeAuthenticator(this.instance, options.httpOnly ? "http" : "https", (options.credentials ?? options.refreshToken)!, options.refreshTokenFile);
+		if (options?.refreshToken || options?.credentials) {
+			const auth = new PeerTubeAuthenticator(this.instance, options.httpOnly ? "http" : "https", (options.refreshToken ?? options.credentials)!, options.refreshTokenFile);
 			const result = await auth.getAccessToken();
 			accessToken = result.accessToken;
 			tokenType = result.tokenType;

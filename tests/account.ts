@@ -1,5 +1,7 @@
 import "dotenv/config";
+
 import { mkdirSync, readFileSync } from "fs";
+
 import { PeerTubeXMPPClient } from "../src";
 
 const INSTANCE_URL = "peertube.wtf";
