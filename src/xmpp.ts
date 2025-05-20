@@ -39,13 +39,37 @@ export type PeerTubeXMPPClientOptions = {
 	refreshTokenFile?: string;
 }
 
+export type PeerTubeData = {
+	peertubeVideoOriginalUrl: string;
+	peertubeVideoUUID: string;
+	staticBaseUrl: string;
+	assetsPath: string;
+	isRemoteChat: boolean;
+	localAnonymousJID: string;
+	remoteAnonymousJID: string | null;
+	remoteAnonymousXMPPServer: boolean;
+	remoteAuthenticatedXMPPServer: boolean;
+	room: string;
+	localBoshServiceUrl: string;
+	localWebsocketServiceUrl: string;
+	remoteBoshServiceUrl: string | null;
+	remoteWebsocketServiceUrl: string | null;
+	authenticationUrl: string;
+	autoViewerMode: boolean;
+	theme: string;
+	forceReadonly: boolean;
+	transparent: boolean;
+	forceDefaultHideMucParticipants: boolean;
+	customEmojisUrl: string;
+}
+
 export class PeerTubeXMPPClient extends EventEmitter {
 	instance: string;
 	roomId: string;
 	isAnonymous: boolean;
 	// Runtime properties
 	xmpp!: Client;
-	roomAddress!: string;
+	data!: PeerTubeData;
 	jid!: JID;
 	waiting = new Set<string>(); // request ids waiting for responses
 	ready = false;
@@ -76,8 +100,8 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		const html = await res.text();
 		const match = html.match(/initConverse\(\s*({.*}),/);
 		if (!match || !match[1]) throw new Error("Failed to extract data from chat room");
-		const { localAnonymousJID, localWebsocketServiceUrl, authenticationUrl, customEmojisUrl, room } = JSON.parse(match[1]);
-		this.roomAddress = room;
+		this.data = JSON.parse(match[1]);
+		const { localAnonymousJID, localWebsocketServiceUrl, authenticationUrl, customEmojisUrl } = this.data;
 
 		const xmppOptions: Options = {
 			service: `${options?.httpOnly ? "ws" : "wss"}://${this.instance}${localWebsocketServiceUrl}`,
@@ -155,7 +179,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		this.jid = await this.xmpp.start();
 		const res = await this.send(xml(
 			"presence",
-			{ from: this.jid, to: this.roomAddress + "/" + nickname },
+			{ from: this.jid, to: this.data.room + "/" + nickname },
 			xml("x", { xmlns: "http://jabber.org/protocol/muc" })
 		));
 		const affRole = res.getChild("x")?.getChild("item");
@@ -189,7 +213,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	async message(body: string) {
 		const result = await this.send(xml(
 			"message",
-			{ from: this.jid, to: this.roomAddress, type: "groupchat" },
+			{ from: this.jid, to: this.data.room, type: "groupchat" },
 			xml("body", {}, body)
 		));
 		const error = result.getChild("error");
