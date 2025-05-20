@@ -220,7 +220,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		// Ping server
 		await this.send(xml(
 			"iq",
-			{ from: this.jid, to: this.instance, type: "get" },
+			{ from: this.jid, to: this.isAnonymous ? this.data.localAnonymousJID : this.instance, type: "get" },
 			xml("ping", { xmlns: "urn:xmpp:ping" })
 		));
 		// Ping account
