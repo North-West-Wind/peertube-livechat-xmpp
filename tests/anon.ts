@@ -22,6 +22,7 @@ client.on("message", async message => {
 });
 
 client.on("presence", (oldUser, newUser) => {
+	console.log(newUser.nickname, oldUser, newUser);
 	if (newUser.online && (!oldUser || !oldUser.online)) {
 		console.log(newUser.nickname + " is now online");
 	} else if (oldUser?.online && !newUser.online) {

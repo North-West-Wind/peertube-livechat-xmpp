@@ -33,7 +33,7 @@ export class UserManager extends Manager<string, User> {
 			nickname: (stanza.getAttr("from") as string).split("/").pop()!,
 			affiliation: affRole?.getAttr("affiliation"),
 			role: affRole?.getAttr("role"),
-			online: stanza.getAttr("type") == "unavailable"
+			online: stanza.getAttr("type") != "unavailable"
 		};
 		this.emit("presence", this.get(user.occupantId), user);
 		this.set(user.occupantId, user);
