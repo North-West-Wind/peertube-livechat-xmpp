@@ -1,9 +1,7 @@
 import { Client, client, Options } from "@xmpp/client";
 import { JID } from "@xmpp/jid";
 import xml, { Element } from "@xmpp/xml";
-import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
-import fetch from "node-fetch";
 
 import { PeerTubeAuthenticator } from "./auth";
 import { Message, MessageManager, MessageMention } from "./manager/message";
@@ -203,7 +201,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * @returns A response to the request
 	 */
 	private async send(element: Element) {
-		const id = randomUUID();
+		const id = Math.random().toString(36).substring(2, 10);
 		this.waiting.add(id);
 
 		const waitForResult = new Promise<Element>(res => {

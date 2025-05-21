@@ -1,7 +1,3 @@
-import { writeFile } from "fs";
-import fetch from "node-fetch";
-import { URLSearchParams } from "url";
-
 export class PeerTubeAuthenticator {
 	readonly oauthClientUrl: string;
 	readonly loginUrl: string;
@@ -65,7 +61,15 @@ export class PeerTubeAuthenticator {
 		this.expireAccessToken(expiresIn);
 		// Cache refresh token and write to file
 		this.refreshToken = refreshToken;
-		if (this.refreshTokenFile) writeFile(this.refreshTokenFile, this.refreshToken || "", () => {});
+		if (this.refreshTokenFile) {
+			if (typeof window === "undefined") {
+				// Write file in node
+				(await import("fs")).writeFile(this.refreshTokenFile, this.refreshToken || "", () => {});
+			} else {
+				// No FS in browser
+				console.warn("refreshTokenFile specified, but environment is not node");
+			}
+		}
 		// Convert auth method to refresh_token
 		this.type = "refresh_token";
 		return { accessToken, tokenType };
