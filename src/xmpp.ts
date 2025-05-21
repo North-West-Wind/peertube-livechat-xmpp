@@ -195,6 +195,11 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		setInterval(() => this.ping(), 40000);
 	}
 
+	async stop() {
+		await this.xmpp.stop();
+		this.ready = false;
+	}
+
 	/**
 	 * Sends and wait for a response by applying an ID
 	 * @param element An XML element to send to the XMPP websocket
