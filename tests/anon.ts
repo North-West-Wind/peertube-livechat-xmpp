@@ -7,6 +7,13 @@ const client = new PeerTubeXMPPClient(INSTANCE_URL, ADDRESS);
 client.on("ready", async () => {
 	console.log("ready!");
 	console.log(client.users.self);
+
+	// send a message that will be deleted
+	const message = await client.message("To be deleted");
+	//console.log(message);
+	setTimeout(async () => {
+		await client.delete(message.originId);
+	}, 3000);
 });
 
 client.on("message", async message => {

@@ -266,7 +266,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 			index = body.indexOf("@", index + 1);
 		}
 		// Send message, including mentions
-		const nodes = [xml("body", {}, body)];
+		const nodes = [xml("body", {}, body), xml("origin-id", { id: crypto.randomUUID(), xmlns: 'urn:xmpp:sid:0' })];
 		mentions.forEach(mention => nodes.push(xml("reference", {
 			uri: mention.uri,
 			begin: mention.begin.toString(),
@@ -281,6 +281,25 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		));
 		const error = result.getChild("error");
 		if (error) throw new Error(error.getChildText("text") || "Unknown error");
-		return this.messages.parse(result, this).message;
+		return this.messages.parse(result, this).message as Message;
+	}
+
+	/**
+	 * Deletes a message
+	 * @param msgId The origin ID of the message to be deleted
+	 */
+	async delete(msgId: string) {
+		const result = await this.send(xml(
+			"message",
+			{ to: this.data.room, type: "groupchat" },
+			xml("store", { xmlns: "urn:xmpp:hints" }),
+			xml(
+				"apply-to",
+				{ id: msgId, xmlns: "urn:xmpp:fasten:0" },
+				xml("retract", { xmlns: "urn:xmpp:message-retract:0" })
+			),
+		));
+		const error = result.getChild("error");
+		if (error) throw new Error(error.getChildText("text") || "Unknown error");
 	}
 }
