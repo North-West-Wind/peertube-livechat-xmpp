@@ -267,9 +267,11 @@ export class PeerTubeXMPPClient extends EventEmitter {
 			index = body.indexOf("@", index + 1);
 		}
 		// Send message, including mentions
-		let randomUUID = this.randomUUID ?? crypto?.randomUUID ?? (await import("crypto")).randomUUID;
-		if (!this.randomUUID) this.randomUUID = randomUUID;
-		const nodes = [xml("body", {}, body), xml("origin-id", { id: randomUUID(), xmlns: 'urn:xmpp:sid:0' })];
+		if (!this.randomUUID) {
+			if (typeof window == "undefined") this.randomUUID = (await import("crypto")).randomUUID; // node
+			else this.randomUUID = crypto.randomUUID; // browser
+		}
+		const nodes = [xml("body", {}, body), xml("origin-id", { id: this.randomUUID(), xmlns: 'urn:xmpp:sid:0' })];
 		mentions.forEach(mention => nodes.push(xml("reference", {
 			uri: mention.uri,
 			begin: mention.begin.toString(),
