@@ -48,6 +48,7 @@ enum ParsedType {
 }
 
 export interface MessageManager {
+	on(event: "oldMessage", listener: (message: Message) => void): this;
 	on(event: "message", listener: (message: Message) => void): this;
 }
 
@@ -95,9 +96,11 @@ export class MessageManager extends Manager<string, Message> {
 				break;
 			case ParsedType.NEW:
 				this.emit("message", message);
+				this.set(message.id!, message as Message);
+				break;
 			case ParsedType.OLD: {
-				const msg = message as Message;
-				this.set(msg.id!, msg);
+				this.emit("oldMessage", message);
+				this.set(message.id!, message as Message);
 				break;
 			}
 		}

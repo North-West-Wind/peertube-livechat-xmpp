@@ -1,6 +1,6 @@
 {
   "name": "peertube-livechat-xmpp",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A library for interacting with PeerTube live chat plugin using XMPP.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
