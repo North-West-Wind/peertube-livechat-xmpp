@@ -54,6 +54,7 @@ export interface MessageManager {
 
 export class MessageManager extends Manager<string, Message> {
 	server = "";
+	private list: Message[] = [];
 
 	parse(stanza: Element, client: PeerTubeXMPPClient): { type: ParsedType, message: Partial<Message> } {
 		// Construct a Message object
@@ -97,12 +98,18 @@ export class MessageManager extends Manager<string, Message> {
 			case ParsedType.NEW:
 				this.emit("message", message);
 				this.set(message.id!, message as Message);
+				this.list.push(message as Message);
 				break;
 			case ParsedType.OLD: {
 				this.emit("oldMessage", message);
 				this.set(message.id!, message as Message);
+				this.list.push(message as Message);
 				break;
 			}
 		}
+	}
+
+	all() {
+		return Array.from(this.list);
 	}
 }
