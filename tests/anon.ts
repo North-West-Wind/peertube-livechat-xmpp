@@ -24,7 +24,7 @@ client.on("message", async message => {
 	// respond to command
 	if (message.body == "!ping") {
 		const message = await client.message("pong!");
-		console.log(message.id);
+		console.log(message.originId);
 	} else if (message.mentions.some(mention => mention.nickname == client.users.self?.nickname)) {
 		// mentions
 		await client.message(`@${encodeURIComponent(author?.nickname || "")} Hi`);
@@ -32,6 +32,11 @@ client.on("message", async message => {
 		console.log(message.mentions);
 		console.log(client.users.get(message.authorId)?.jid);
 	}
+});
+
+client.on("messageRemove", message => {
+	if (message)
+		console.log(`Removed "${message.body}" from ${message.author()?.nickname}`);
 });
 
 client.on("presence", (oldUser, newUser) => {

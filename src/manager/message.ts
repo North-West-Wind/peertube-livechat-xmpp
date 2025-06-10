@@ -12,18 +12,16 @@ export type MessageMention = {
 
 export class Message {
 	client: PeerTubeXMPPClient;
-	id: string;
-	authorId: string;
 	originId: string;
+	authorId: string;
 	time: number;
 	body: string;
 	mentions: MessageMention[];
 
-	constructor(client: PeerTubeXMPPClient, id: string, authorId: string, originId: string, time: number, body: string, mentions: MessageMention[]) {
+	constructor(client: PeerTubeXMPPClient, originId: string, authorId: string, time: number, body: string, mentions: MessageMention[]) {
 		this.client = client;
-		this.id = id;
-		this.authorId = authorId;
 		this.originId = originId;
+		this.authorId = authorId;
 		this.time = time;
 		this.body = body;
 		this.mentions = mentions;
@@ -44,12 +42,14 @@ enum ParsedType {
 	INVALID,
 	SERVER,
 	OLD,
-	NEW
+	NEW,
+	REMOVE
 }
 
 export interface MessageManager {
 	on(event: "oldMessage", listener: (message: Message) => void): this;
 	on(event: "message", listener: (message: Message) => void): this;
+	on(event: "messageRemove", listener: (message?: Message) => void): this;
 }
 
 export class MessageManager extends Manager<string, Message> {
@@ -57,12 +57,21 @@ export class MessageManager extends Manager<string, Message> {
 	private list: Message[] = [];
 
 	parse(stanza: Element, client: PeerTubeXMPPClient): { type: ParsedType, message: Partial<Message> } {
+		let applied = stanza.getChild("apply-to");
+		if (applied) {
+			if (applied.getChild("retract")?.getAttr("xmlns") == "urn:xmpp:message-retract:0") {
+				// Message retracted
+				const originId = applied.getAttr("id");
+				if (!originId) return { type: ParsedType.INVALID, message: {} };
+				return { type: ParsedType.REMOVE, message: { originId } };
+			}
+			return { type: ParsedType.INVALID, message: {} };
+		}
 		// Construct a Message object
 		const message = new Message(
 			client,
-			stanza.getChild("stanza-id")?.getAttr("id"),
-			stanza.getChild("occupant-id")?.getAttr("id"),
 			stanza.getChild("origin-id")?.getAttr("id"),
+			stanza.getChild("occupant-id")?.getAttr("id"),
 			0,
 			stanza.getChildText("body") || "",
 			[]
@@ -84,8 +93,8 @@ export class MessageManager extends Manager<string, Message> {
 			message.mentions?.push(mention);
 		}
 
-		if (!message.id && message.body) return { type: ParsedType.SERVER, message };
-		if (!message.id || !message.authorId || !message.originId || !message.body) return { type: ParsedType.INVALID, message };
+		if (!stanza.getChild("stanza-id")?.getAttr("id") && message.body) return { type: ParsedType.SERVER, message };
+		if (!message.originId || !message.authorId || !message.originId || !message.body) return { type: ParsedType.INVALID, message };
 		return { type: delay ? ParsedType.OLD : ParsedType.NEW, message };
 	}
 
@@ -97,15 +106,22 @@ export class MessageManager extends Manager<string, Message> {
 				break;
 			case ParsedType.NEW:
 				this.emit("message", message);
-				this.set(message.id!, message as Message);
+				this.set(message.originId!, message as Message);
 				this.list.push(message as Message);
 				break;
 			case ParsedType.OLD: {
 				this.emit("oldMessage", message);
-				this.set(message.id!, message as Message);
+				this.set(message.originId!, message as Message);
 				this.list.push(message as Message);
 				break;
 			}
+			case ParsedType.REMOVE:
+				this.emit("messageRemove", this.get(message.originId!));
+				this.delete(message.originId!);
+				const index = this.list.findIndex(msg => msg.originId == message.originId);
+				if (index >= 0)
+					this.list.splice(index, 1);
+				break;
 		}
 	}
 

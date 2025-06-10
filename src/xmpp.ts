@@ -12,6 +12,7 @@ export interface PeerTubeXMPPClient {
 	on(event: "ready", listener: () => void): this;
 	on(event: "oldMessage", listener: (message: Message) => void): this;
 	on(event: "message", listener: (message: Message) => void): this;
+	on(event: "messageRemove", listener: (message?: Message) => void): this;
 	on(event: "presence", listener: (oldUser: User | undefined, newUser: User) => void): this;
 }
 
@@ -167,6 +168,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		this.users.on("presence", (oldUser, newUser) => this.emit("presence", oldUser, newUser));
 		this.messages.on("oldMessage", message => this.emit("oldMessage", message));
 		this.messages.on("message", message => this.emit("message", message));
+		this.messages.on("messageRemove", message => this.emit("messageRemove", message));
 
 		await this.start(nickname);
 		this.ready = true;
@@ -296,7 +298,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	async delete(msgId: string) {
 		const result = await this.send(xml(
 			"message",
-			{ to: this.data.room, type: "groupchat" },
+			{ to: this.data.room, type: "groupchat", xmlns: "jabber:client" },
 			xml("store", { xmlns: "urn:xmpp:hints" }),
 			xml(
 				"apply-to",

@@ -16,6 +16,10 @@ export abstract class Manager<K, V> extends EventEmitter {
 		this.map.set(key, value);
 	}
 
+	protected delete(key: K) {
+		this.map.delete(key);
+	}
+
 	get(key: K) {
 		return this.map.get(key);
 	}
