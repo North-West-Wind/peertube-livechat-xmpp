@@ -1,7 +1,7 @@
 export class PeerTubeAuthenticator {
 	readonly oauthClientUrl: string;
 	readonly loginUrl: string;
-	private refreshTokenFile?: string;
+	private onRefresh?: (accessToken: string, refreshToken: string, expiresIn: number) => void;
 
 	private type: "password" | "refresh_token";
 	private refreshToken?: string;
@@ -15,20 +15,25 @@ export class PeerTubeAuthenticator {
 	 * Creates a PeerTubeAuthenticator object for obtaining access token
 	 * @param instance PeerTube instance URL
 	 * @param protocol HTTP or HTTPS
-	 * @param tokenOrCredentials Refresh token or username and password
-	 * @param refreshTokenFile A file to write the new refresh token to
+	 * @param tokenOrCredentials Access and/or refresh token or username and password
+	 * @param onRefresh A function to call when the token is refreshed
 	 */
-	constructor(instance: string, protocol: "http" | "https", tokenOrCredentials: string | { username: string, password: string }, refreshTokenFile?: string) {
+	constructor(instance: string, protocol: "http" | "https", tokenOrCredentials: { accessToken?: string, refreshToken: string } | { username: string, password: string }, onRefresh?: (accessToken: string, refreshToken: string, expiresIn: number) => void) {
 		this.oauthClientUrl = `${protocol}://${instance}/api/v1/oauth-clients/local`;
 		this.loginUrl = `${protocol}://${instance}/api/v1/users/token`;
-		this.refreshTokenFile = refreshTokenFile;
+		this.onRefresh = onRefresh;
 
-		if (typeof tokenOrCredentials == "string") {
+		const asAny = tokenOrCredentials as any;
+		if (asAny.refreshToken) {
 			this.type = "refresh_token";
-			this.refreshToken = tokenOrCredentials;
+			this.refreshToken = asAny.refreshToken;
+			if (asAny.accessToken) {
+				this.accessToken = asAny.accessToken;
+				this.tokenType = "Bearer";
+			}
 		} else {
 			this.type = "password";
-			this.credentials = tokenOrCredentials;
+			this.credentials = asAny;
 		}
 	}
 
@@ -61,15 +66,7 @@ export class PeerTubeAuthenticator {
 		this.expireAccessToken(expiresIn);
 		// Cache refresh token and write to file
 		this.refreshToken = refreshToken;
-		if (this.refreshTokenFile) {
-			if (typeof window === "undefined") {
-				// Write file in node
-				(await import("fs")).writeFile(this.refreshTokenFile, this.refreshToken || "", () => {});
-			} else {
-				// No FS in browser
-				console.warn("refreshTokenFile specified, but environment is not node");
-			}
-		}
+		if (this.onRefresh) this.onRefresh(accessToken, refreshToken, expiresIn);
 		// Convert auth method to refresh_token
 		this.type = "refresh_token";
 		return { accessToken, tokenType };

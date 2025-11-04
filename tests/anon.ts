@@ -1,7 +1,7 @@
 import { PeerTubeXMPPClient } from "../src";
 
 const INSTANCE_URL = "peertube.wtf";
-const ADDRESS = "7f85efe2-07bb-4e93-9008-c6e20efbbf08";
+const ADDRESS = "7b912924-07bf-4864-a2e2-16e44bdaffa8";
 
 const client = new PeerTubeXMPPClient(INSTANCE_URL, ADDRESS);
 client.on("ready", async () => {
@@ -49,3 +49,5 @@ client.on("presence", (oldUser, newUser) => {
 		console.log(`${newUser.nickname}: ${newUser.affiliation}, ${newUser.role}`);
 	}
 });
+
+client.init();

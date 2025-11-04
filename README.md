@@ -23,7 +23,7 @@ const client = new PeerTubeXMPPClient("your.instance.url", "room-id", {
 	credentials: { username: "user", password: "pass" }, // Login details of a PeerTube account
 	nickname: "Nick!", // Explicit nickname. If omitted, will use the PeerTube supplied nickname or anonymous name
 	httpOnly: false, // If true, will use http instead of https
-	refreshTokenFile: "path/to/file", // If account is supplied (either refreshToken or credentials), a new refresh token will be written to this file
+	onRefresh: (accessToken, refreshToken, expiresIn) => {}, // If account is supplied, this will be called when access token is refresh
 });
 ```
 
@@ -82,7 +82,7 @@ client.on("presence", (oldUser, newUser) => {
 ## Tests
 Clone this repository and run `npm i` to install the required pacakges.
 
-Run `npm test` to test anonymous user in the chat room `7f85efe2-07bb-4e93-9008-c6e20efbbf08@room.peertube.wtf`. You can check the room [here](https://peertube.wtf/plugins/livechat/router/webchat/room/7f85efe2-07bb-4e93-9008-c6e20efbbf08)
+Run `npm test` to test anonymous user in the chat room `7b912924-07bf-4864-a2e2-16e44bdaffa8@room.peertube.wtf`. You can check the room [here](https://peertube.wtf/plugins/livechat/router/webchat/room/7f85efe2-07bb-4e93-9008-c6e20efbbf08)
 
 If you supply a `USERNAME` and `PASSWORD` (PeerTube account credentials) in `.env` (you'll need to create this), you can even try the non-anonymous version.
 

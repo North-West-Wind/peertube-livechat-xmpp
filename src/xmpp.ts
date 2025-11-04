@@ -18,6 +18,10 @@ export interface PeerTubeXMPPClient {
 
 export type PeerTubeXMPPClientOptions = {
 	/**
+	 * PeerTube account access token. Has higher priority over refreshToken and credentials
+	 */
+	accessToken?: string;
+	/**
 	 * PeerTube account refresh token. Has higher priority over credentials
 	 */
 	refreshToken?: string;
@@ -34,9 +38,9 @@ export type PeerTubeXMPPClientOptions = {
 	 */
 	httpOnly?: boolean;
 	/**
-	 * The file path to write the new refresh token to
+	 * A function to call when the access token is refresh
 	 */
-	refreshTokenFile?: string;
+	onRefresh?: (accessToken: string, refreshToken: string, expiresIn: number) => void;
 }
 
 export type PeerTubeData = {
@@ -64,6 +68,7 @@ export type PeerTubeData = {
 }
 
 export class PeerTubeXMPPClient extends EventEmitter {
+	private options?: PeerTubeXMPPClientOptions;
 	instance: string;
 	roomId: string;
 	isAnonymous: boolean;
@@ -90,13 +95,12 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		this.roomId = roomId;
 		// Store state of anonymous
 		this.isAnonymous = !options?.refreshToken && !options?.credentials;
-		// Some function calls require async, so init is deferred
-		this.init(options);
+		this.options = options;
 	}
 
-	private async init(options?: PeerTubeXMPPClientOptions) {
+	async init() {
 		// Extract data from the chat room HTML
-		let res = await fetch(`${options?.httpOnly ? "http" : "https"}://${this.instance}/plugins/livechat/router/webchat/room/${this.roomId}`);
+		let res = await fetch(`${this.options?.httpOnly ? "http" : "https"}://${this.instance}/plugins/livechat/router/webchat/room/${this.roomId}`);
 		if (!res.ok) throw new Error("Failed to get chat room. " + res.status);
 		const html = await res.text();
 		const match = html.match(/initConverse\(\s*({.*}),/);
@@ -105,7 +109,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		const { localAnonymousJID, localWebsocketServiceUrl, authenticationUrl, customEmojisUrl } = this.data;
 
 		const xmppOptions: Options = {
-			service: `${options?.httpOnly ? "ws" : "wss"}://${this.instance}${localWebsocketServiceUrl}`,
+			service: `${this.options?.httpOnly ? "ws" : "wss"}://${this.instance}${localWebsocketServiceUrl}`,
 			domain: this.isAnonymous ? localAnonymousJID : this.instance
 		};
 
@@ -113,11 +117,20 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		// Login using PeerTube livechat auth
 		let accessToken: string | undefined;
 		let tokenType: string | undefined;
-		if (options?.refreshToken || options?.credentials) {
-			const auth = new PeerTubeAuthenticator(this.instance, options.httpOnly ? "http" : "https", (options.refreshToken ?? options.credentials)!, options.refreshTokenFile);
-			const result = await auth.getAccessToken();
-			accessToken = result.accessToken;
-			tokenType = result.tokenType;
+		if (this.options?.accessToken) {
+			accessToken = this.options.accessToken;
+			tokenType = "Bearer";
+		} else if (this.options) {
+			let auth: PeerTubeAuthenticator | undefined;
+			if (this.options.refreshToken)
+				auth = new PeerTubeAuthenticator(this.instance, this.options.httpOnly ? "http" : "https", { accessToken: this.options.accessToken, refreshToken: this.options.refreshToken }, this.options.onRefresh);
+			else if (this.options.credentials)
+				auth = new PeerTubeAuthenticator(this.instance, this.options.httpOnly ? "http" : "https", this.options.credentials, this.options.onRefresh);
+			if (auth) {
+				const result = await auth.getAccessToken();
+				accessToken = result.accessToken;
+				tokenType = result.tokenType;
+			}
 		}
 
 		if (accessToken && tokenType) {
@@ -131,7 +144,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		}
 		
 		// Create nickname from: explicit nickname > peertube nickname > random anon name
-		if (options?.nickname) nickname = options.nickname;
+		if (this.options?.nickname) nickname = this.options.nickname;
 		else if (!nickname) nickname = `Anonymous ${Math.floor(Math.random() * 10000)}`;
 
 		// Fetch custom emojis
