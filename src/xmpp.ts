@@ -96,19 +96,22 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		this.instance = instance;
 		this.roomId = roomId;
 		// Store state of anonymous
-		this.isAnonymous = !options?.refreshToken && !options?.credentials;
+		this.isAnonymous = !options?.accessToken && !options?.refreshToken && !options?.credentials;
 		this.options = options;
 	}
 
 	async init() {
 		if (this.discarded) throw new Error("This client is already destroyed");
+		// Check if livechat plugin exists
+		let res = await fetch(`${this.options?.httpOnly ? "http" : "https"}://peertube.wtf/api/v1/config`);
+		if (!res.ok) throw new Error("Failed to get instance config. " + res.status);
+		const plugin = (await res.json())?.plugin?.registered?.find((plugin: any) => plugin?.name == "livechat");
+		if (!plugin) throw new Error("The instance does not have the livechat plugin");
+
 		// Extract data from the chat room HTML
-		let res = await fetch(`${this.options?.httpOnly ? "http" : "https"}://${this.instance}/plugins/livechat/router/webchat/room/${this.roomId}`);
+		res = await fetch(`${this.options?.httpOnly ? "http" : "https"}://${this.instance}/plugins/livechat/${plugin.version}/router/api/configuration/room/${this.roomId}`);
 		if (!res.ok) throw new Error("Failed to get chat room. " + res.status);
-		const html = await res.text();
-		const match = html.match(/initConverse\(\s*({.*}),/);
-		if (!match || !match[1]) throw new Error("Failed to extract data from chat room");
-		this.data = JSON.parse(match[1]);
+		this.data = await res.json();
 		const { localAnonymousJID, localWebsocketServiceUrl, authenticationUrl, customEmojisUrl } = this.data;
 
 		const xmppOptions: Options = {
