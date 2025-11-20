@@ -78,10 +78,12 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	jid!: JID;
 	waiting = new Set<string>(); // request ids waiting for responses
 	ready = false;
+	discarded = false;
 	customEmojis = new Map<string, string>(); // short name -> url
 	users = new UserManager();
 	messages = new MessageManager();
 	private randomUUID?: () => string;
+	private pingInterval?: NodeJS.Timeout;
 
 	/**
 	 * Creates a PeerTubeXMPPClient instance, which handles a bunch of interaction with PeerTube chat
@@ -99,6 +101,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	}
 
 	async init() {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		// Extract data from the chat room HTML
 		let res = await fetch(`${this.options?.httpOnly ? "http" : "https"}://${this.instance}/plugins/livechat/router/webchat/room/${this.roomId}`);
 		if (!res.ok) throw new Error("Failed to get chat room. " + res.status);
@@ -192,6 +195,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * Wrapper of xmpp.start(), but also automatically send a presence object to join the room
 	 */
 	private async start(nickname: string) {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		this.jid = await this.xmpp.start();
 		const res = await this.send(xml(
 			"presence",
@@ -210,12 +214,17 @@ export class PeerTubeXMPPClient extends EventEmitter {
 		};
 		this.users.self = user;
 		// Ping the server every 40 seconds
-		setInterval(() => this.ping(), 40000);
+		this.pingInterval = setInterval(() => this.ping(), 40000);
 	}
 
 	async stop() {
+		if (this.pingInterval) clearInterval(this.pingInterval);
+		this.users.removeAllListeners();
+		this.messages.removeAllListeners();
+		this.xmpp.removeAllListeners();
 		await this.xmpp.stop();
 		this.ready = false;
+		this.discarded = true;
 	}
 
 	/**
@@ -224,6 +233,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * @returns A response to the request
 	 */
 	private async send(element: Element) {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		const id = Math.random().toString(36).substring(2, 10);
 		this.waiting.add(id);
 
@@ -238,6 +248,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * Sends a ping iq to the server to keep alive
 	 */
 	private async ping() {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		// Ping server
 		await this.send(xml(
 			"iq",
@@ -259,6 +270,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * @returns The message sent
 	 */
 	async message(body: string) {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		// Extract mentions from body
 		const mentions: MessageMention[] = [];
 		const mentionables = new Set<string>();
@@ -309,6 +321,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 	 * @param msgId The origin ID of the message to be deleted
 	 */
 	async delete(msgId: string) {
+		if (this.discarded) throw new Error("This client is already destroyed");
 		const result = await this.send(xml(
 			"message",
 			{ to: this.data.room, type: "groupchat", xmlns: "jabber:client" },
