@@ -14,6 +14,7 @@ export interface PeerTubeXMPPClient {
 	on(event: "message", listener: (message: Message) => void): this;
 	on(event: "messageRemove", listener: (message?: Message) => void): this;
 	on(event: "presence", listener: (oldUser: User | undefined, newUser: User) => void): this;
+	on(event: "error", listener: (error: Error) => void): this;
 }
 
 export type PeerTubeXMPPClientOptions = {
@@ -182,6 +183,7 @@ export class PeerTubeXMPPClient extends EventEmitter {
 				}
 			}
 		});
+		this.xmpp.on("error", (err) => this.emit("error", err));
 
 		// Wrap manager events
 		this.users.on("presence", (oldUser, newUser) => this.emit("presence", oldUser, newUser));
